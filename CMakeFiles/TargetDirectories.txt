@@ -1,0 +1,4 @@
+/home/jace/code/cv/CMakeFiles/mipiCapture.dir
+/home/jace/code/cv/CMakeFiles/main.dir
+/home/jace/code/cv/CMakeFiles/edit_cache.dir
+/home/jace/code/cv/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,3 @@
+https://www.arducam.com/imx415-mipi-camera-module-for-rpi-arducam-opensource-camera.html
+
+https://www.arducam.com/arducam-12mp-imx708-wide-angle-camera-module-for-nvidia-jetson-nano-xavier-nx-orin-nx-orin-nano-agx-orin.html
