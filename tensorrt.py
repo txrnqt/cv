@@ -1,77 +1,73 @@
-import onnx
-import tensorrt as trt
+# %pip install ultralytics
+
+from ultralytics import YOLO
+from google.colab.patches import cv2_imshow
+import cv2
 import time
 import numpy as np
-import torch
-import onnx_tensorrt.backend as backend
+from collections import deque
 
-class MyModel(torch.nn.Module):
-  def __init__(self):
-    super().__init__()
-    self.conv1 = torch.nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
-    self.relu1 = torch.nn.ReLU()
-    self.conv2 = torch.nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
-    self.relu2 = torch.nn.ReLU()
-    self.pool = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-    self.fc1 = torch.nn.Linear(64 * 16 * 16, 512)
-    self.relu3 = torch.nn.ReLU()
-    self.fc2 = torch.nn.Linear(512, 10)
+IMAGE_PATH = '/content/img.jpg'
+NUM_RUNS = 100 
+print("=" * 70)
+print("YOLO11n FPS Test")
+print("=" * 70)
 
-  def forward(self, x):
-    x = self.conv1(x)
-    x = self.relu1(x)
-    x = self.conv2(x)
-    x = self.relu2(x)
-    x = x.view(-1, 64* 16 *16)
-    x = self.fc1(x)
-    x = self.relu3(x)
-    x = self.fc2(x)
-    return x
+print("\nLoading YOLO11n model...")
+model = YOLO('/content/jetson_orinnano.pt')
+print(f"Loading image: {IMAGE_PATH}")
+image = cv2.imread(IMAGE_PATH)
 
-model = MyModel()
-dummy_input = torch.randn(input_shape)
-input_shape = (1, 3, 32, 32)
-input_names = ['input']
-output_names = ['output']
-torch.onnx.export(model, dummy_input, 'my_model.onnx', verbose=False, input_names = input_names, output_names =output_names)
+if image is None:
+    raise RuntimeError(f"Could not read image: {IMAGE_PATH}")
 
-model_onnx = onnx.load('my_model.onnx')
-engine = backend.prepare(model_onnx, device='CUDA:0')
+print(f"Image size: {image.shape[1]}x{image.shape[0]}")
 
-context = engine.create_execution_context()
+print("\nWarming up (5 runs)...")
+for i in range(5):
+    _ = model(image, verbose=False)
 
-input_name = 'input'
-output_name = 'output'
-input_shape = (1, 3, 32, 32)
-output_shape = (1, 10)
-input_buf = trt.cuda.alloc_cuda_pinned_memory(trt.volume(input_shape) * trt.float32.itemsize)
-output_buf = trt.cuda.alloc_cuda_pinned_memory(trt.volume(output_shape) * trt.float32.itemsize)
+print(f"\nRunning {NUM_RUNS} inferences...")
+inference_times = deque(maxlen=NUM_RUNS)
 
-model.load_state_dict(torch.load('my_model.pth'))
-model.eval()
-num_iterations = 1000
-total_time = 0.0
-with torch.no_grad():
-    for i in range(num_iterations):
-        start_time = time.time()
-        input_data = torch.randn(input_shape)
-        output_data = model(input_data)
-        end_time = time.time()
-        total_time += end_time - start_time
-pytorch_fps = num_iterations / total_time
-print(f"PyTorch FPS: {pytorch_fps:.2f}")
+for i in range(NUM_RUNS):
+    start = time.time()
+    results = model(image, verbose=False)
+    inference_time = (time.time() - start) * 1000  
+    inference_times.append(inference_time)
+    
+    if (i + 1) % 20 == 0:
+        avg_time = np.mean(inference_times)
+        avg_fps = 1000.0 / avg_time
+        print(f"  Progress: {i+1}/{NUM_RUNS} | Avg: {avg_time:.2f}ms | FPS: {avg_fps:.1f}")
 
-trt_engine = backend.prepare(model_onnx, device='CUDA:0')
-num_iterations = 1000
-total_time = 0.0
-with torch.no_grad():
-    for i in range(num_iterations):
-        input_data = torch.randn(input_shape).cuda()
-        start_time = time.time()
-        output_data = trt_engine.run(input_data.cpu().numpy())[0]
-        end_time = time.time()
-        total_time += end_time - start_time
-tensorrt_fps = num_iterations /total_time
-tensorrt_fps = num_iterations / total_time
-print(f"TensorRT FPS: {tensorrt_fps:.2f}")
-print(f"Speedup: {tensorrt_fps/pytorch_fps:.2f}x")
+avg_inference = np.mean(inference_times)
+min_inference = np.min(inference_times)
+max_inference = np.max(inference_times)
+avg_fps = 1000.0 / avg_inference
+
+print("\n" + "=" * 70)
+print("RESULTS")
+print("=" * 70)
+print(f"Average Inference Time: {avg_inference:.2f}ms")
+print(f"Min Inference Time:     {min_inference:.2f}ms")
+print(f"Max Inference Time:     {max_inference:.2f}ms")
+print(f"Average FPS:            {avg_fps:.1f}")
+print("=" * 70)
+
+print("\nRunning final detection with visualization")
+results = model(image)
+annotated = results[0].plot()
+
+cv2.putText(annotated, f"Avg FPS: {avg_fps:.1f}", (10, 30),
+           cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+cv2.putText(annotated, f"Avg Inference: {avg_inference:.1f}ms", (10, 70),
+           cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+cv2_imshow(annotated)
+
+print(f"\nDetected {len(results[0].boxes)} objects:")
+for box in results[0].boxes:
+    cls = int(box.cls[0])
+    conf = float(box.conf[0])
+    print(f"  {model.names[cls]}: {conf:.3f}")
