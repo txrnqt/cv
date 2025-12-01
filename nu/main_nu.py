@@ -28,7 +28,6 @@ camera_matrix = utils.get_calibration_camera_matrix("content/calibration.json")
 
 
 def capture_loop():
-    """Continuously capture and process frames in background thread"""
     global latest_frame, latest_bbox, latest_yaw
 
     while True:
@@ -42,28 +41,15 @@ def capture_loop():
             latest_yaw = yaw
 
 
-def generate_frames():
-    """Generator function for raw video feed"""
+def generate_frames(frame):
     while True:
         with frame_lock:
-            if latest_frame is not None:
-                frame = latest_frame.copy()
+            if frame is not None:
+                frame_generated = frame.copy()
             else:
                 continue
 
-        yield utils.encode_video(frame)
-
-
-def generate_detection_frames():
-    """Generator function for detection video feed"""
-    while True:
-        with frame_lock:
-            if latest_bbox is not None:
-                bbox = latest_bbox.copy()
-            else:
-                continue
-
-        yield utils.encode_video(bbox)
+        yield utils.encode_video(frame_generated)
 
 
 @app.route("/")
@@ -81,22 +67,22 @@ def configurator():
     return render_template("configurator.html")
 
 
-@app.route("/video_feed")
+@app.route("/video/raw_feed")
 def video_feed():
     return Response(
-        generate_frames(), mimetype="multipart/x-mixed-replace; boundary=frame"
+        generate_frames(latest_frame), mimetype="multipart/x-mixed-replace; boundary=frame"
     )
 
 
-@app.route("/detect_video_feed")
-def detect_video_feed():
+@app.route("/video/detected_feed")
+def detected_feed():
     return Response(
-        generate_detection_frames(),
+        generate_frames(latest_bbox),
         mimetype="multipart/x-mixed-replace; boundary=frame",
     )
 
 
-@app.route("/yaw")
+@app.route("/detections/yaw")
 def yaw():
     with frame_lock:
         current_yaw = latest_yaw
