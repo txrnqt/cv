@@ -1,9 +1,6 @@
-# %pip install ultralytics
-
 import time
 from collections import deque
 
-# from google.colab.patches import cv2_imshow
 import cv2
 import numpy as np
 from ultralytics import YOLO
