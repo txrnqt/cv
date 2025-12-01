@@ -1,12 +1,12 @@
 import cv2
 from cv2_enumerate_cameras import enumerate_cameras
 
-cameras = enumerate_cameras()
+cameras_detected = enumerate_cameras()
 
 
 def get_available_cameras():
     cam_info = []
-    for i, camera_info in enumerate(cameras):
+    for i, camera_info in enumerate(cameras_detected):
         cap = cv2.VideoCapture(camera_info.index)
 
         if cap.isOpened():

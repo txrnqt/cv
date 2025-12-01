@@ -116,7 +116,10 @@
     <body>
         <div class="navbar">
             <a href="{{ url_for('index') }}" class="active">Camera Feeds</a>
-            <a href="{{ url_for('cameras') }}">Available Cameras</a>
+            <a href="{{ url_for('/camera_matching/page') }}"
+                >Available Cameras</a
+            >
+            <a href="{{ url_for('/config/page') }}">Camera Configurator</a>
         </div>
 
         <div class="content">
@@ -126,14 +129,6 @@
                 <button class="hello-button" onclick="showHelloWorld()">
                     Hello World
                 </button>
-                <a
-                    href="{{ url_for('cameras') }}"
-                    style="text-decoration: none"
-                >
-                    <button class="hello-button camera-button">
-                        View Available Cameras
-                    </button>
-                </a>
             </div>
 
             <div class="feeds">
