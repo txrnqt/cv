@@ -116,10 +116,10 @@
     <body>
         <div class="navbar">
             <a href="{{ url_for('index') }}" class="active">Camera Feeds</a>
-            <a href="{{ url_for('/camera_matching/page') }}"
+            <a href="{{ url_for('cameras_matching_page') }}"
                 >Available Cameras</a
             >
-            <a href="{{ url_for('/config/page') }}">Camera Configurator</a>
+            <a href="{{ url_for('configurator_page') }}">Camera Configurator</a>
         </div>
 
         <div class="content">
@@ -135,14 +135,14 @@
                 <div class="feed">
                     <h2>Original</h2>
                     <img
-                        src="{{ url_for('/video/raw_feed') }}"
+                        src="{{ url_for('video_feed_raw') }}"
                         alt="Original Feed"
                     />
                 </div>
                 <div class="feed">
                     <h2>Detection</h2>
                     <img
-                        src="{{ url_for('/video/detected_feed') }}"
+                        src="{{ url_for('video_feed_processed') }}"
                         alt="Detection Feed"
                     />
                 </div>

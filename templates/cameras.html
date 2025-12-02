@@ -180,9 +180,10 @@
     <body>
         <div class="navbar">
             <a href="{{ url_for('index') }}">Camera Feeds</a>
-            <a href="{{ url_for('cameras') }}" class="active"
+            <a href="{{ url_for('cameras_matching_page') }}" class="active"
                 >Available Cameras</a
             >
+            <a href="{{ url_for('configurator_page') }}">Camera Configurator</a>
         </div>
 
         <div class="container">
@@ -218,7 +219,7 @@
                 container.innerHTML =
                     '<div class="loading">Scanning for cameras...</div>';
 
-                fetch("/api/cameras")
+                fetch("/video/avaliable_cameras")
                     .then((response) => response.json())
                     .then((cameras) => {
                         if (cameras.length === 0) {
@@ -227,7 +228,6 @@
                             return;
                         }
 
-                        // Update stats
                         document.getElementById("total-cameras").textContent =
                             cameras.length;
                         const activeCameras = cameras.filter(
@@ -239,7 +239,6 @@
                             "inactive-cameras",
                         ).textContent = cameras.length - activeCameras;
 
-                        // Create camera grid
                         let html = '<div class="camera-grid">';
 
                         cameras.forEach((cam) => {
@@ -252,8 +251,8 @@
 
                             html += `
                                 <div class="camera-card">
-                                    <div class="camera-preview" onclick="togglePreview(${cam.id})">
-                                        <div class="preview-placeholder" id="placeholder-${cam.id}">📷</div>
+                                    <div class="camera-preview" onclick="activate(${cam.id})">
+                                        <div class="preview-placeholder" id="placeholder-${cam.id}"></div>
                                         <img id="preview-${cam.id}" style="display: none;" />
                                     </div>
                                     <div class="camera-info">
@@ -282,8 +281,8 @@
                                             <span class="info-label">Path:</span>
                                             <span class="info-value">${cam.path}</span>
                                         </div>
-                                        <button class="preview-btn" onclick="togglePreview(${cam.id})">
-                                            Toggle Live Preview
+                                        <button class="preview-btn" onclick="activate(${cam.id})">
+                                        Activate Camera
                                         </button>
                                     </div>
                                 </div>
@@ -300,14 +299,14 @@
                     });
             }
 
-            function togglePreview(cameraId) {
+            function activate(cameraId) {
                 const img = document.getElementById(`preview-${cameraId}`);
                 const placeholder = document.getElementById(
                     `placeholder-${cameraId}`,
                 );
 
                 if (img.style.display === "none") {
-                    img.src = `/api/camera/${cameraId}/preview`;
+                    img.src = `/video/avaliable_cameras/${cameraId}/preview`;
                     img.style.display = "block";
                     placeholder.style.display = "none";
                 } else {
@@ -316,11 +315,7 @@
                     placeholder.style.display = "block";
                 }
             }
-
-            // Load cameras on page load
             loadCameras();
-
-            // Auto-refresh every 30 seconds
             setInterval(loadCameras, 30000);
         </script>
     </body>

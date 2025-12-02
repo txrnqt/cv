@@ -2,7 +2,7 @@ import json
 from math import atan
 
 import cv2
-import numpy as np
+import numpy
 
 
 def calculate_yaw(bbox, f_x, img_width=640):
@@ -10,12 +10,6 @@ def calculate_yaw(bbox, f_x, img_width=640):
     x = (x1 + x2) / 2
     x -= img_width
     return atan(x / f_x)
-
-
-def encode_video(frame):
-    ret, buffer = cv2.imencode("jpg", frame)
-    frame_bytes = buffer.tobytes()
-    yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n")
 
 
 def get_calibration_camera_matrix(path):
