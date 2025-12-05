@@ -12,7 +12,7 @@ from flask import (
 )
 
 import cameras_hardware
-import detect_nu
+import detect
 import utils
 
 app = Flask(__name__)
@@ -24,10 +24,9 @@ frame_lock = threading.Lock()
 has_json = False
 camera_matrix = None
 calibration_path = "content/calibration.json"
+cameras = {}
 
-
-camera = cameras_hardware.camera_usb(1)
-detector = detect_nu.Detector("content/jetson_orinnano.engine")
+detector = detect.Detector("content/jetson_orinnano.engine")
 
 
 if os.path.exists(calibration_path):
@@ -177,7 +176,6 @@ def upload_json():
 
 @app.route("/config/status")
 def config_status():
-    """Check if calibration is loaded."""
     return jsonify(
         {
             "calibration_loaded": camera_matrix is not None,
@@ -190,6 +188,23 @@ def config_status():
 def avaliable_cameras_button():
     cameras_avaliable = cameras_hardware.get_available_cameras()
     return jsonify(cameras_avaliable)
+
+
+@app.route("/video/activate_camera", methods=["POST"])
+def activate_camera():
+    global camera
+
+    data = request.get_json()
+    camera_id = data.get("camera_id", 0)
+
+    camera = cameras_hardware.camera_usb(camera_id)
+    cameras.append(camera)
+
+    return {
+        "success": True,
+        "message": f"Camera {camera_id} opened successfully",
+        "camera_id": camera_id,
+    }
 
 
 def main():

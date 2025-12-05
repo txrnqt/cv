@@ -300,21 +300,25 @@
             }
 
             function activate(cameraId) {
-                const img = document.getElementById(`preview-${cameraId}`);
-                const placeholder = document.getElementById(
-                    `placeholder-${cameraId}`,
-                );
-
-                if (img.style.display === "none") {
-                    img.src = `/video/avaliable_cameras/${cameraId}/preview`;
-                    img.style.display = "block";
-                    placeholder.style.display = "none";
-                } else {
-                    img.style.display = "none";
-                    img.src = "";
-                    placeholder.style.display = "block";
-                }
+                etch("/open_camera", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ camera_id: cameraId }),
+                })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        alert(data.message);
+                        if (data.success) {
+                            document.getElementById(
+                                "camera-container",
+                            ).style.display = "block";
+                            document.getElementById(
+                                "camera-label",
+                            ).textContent = cameraId;
+                        }
+                    });
             }
+
             loadCameras();
             setInterval(loadCameras, 30000);
         </script>
