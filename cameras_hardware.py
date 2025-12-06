@@ -7,32 +7,23 @@ cameras_detected = enumerate_cameras()
 def get_available_cameras():
     cam_info = []
     for i, camera_info in enumerate(cameras_detected):
-        cap = cv2.VideoCapture(camera_info.index)
-
-        if cap.isOpened():
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = int(cap.get(cv2.CAP_PROP_FPS))
-            backend = cap.getBackendName()
-
-            ret, frame = cap.read()
-            status = "Active" if ret else "Error"
-
-            cap.release()
-        else:
-            width = height = fps = 0
-            backend = "Unknown"
-            status = "Inactive"
+        status = "Inactive"
+        try:
+            test_cap = cv2.VideoCapture(camera_info.index)
+            if test_cap.isOpened():
+                status = "Inactive"
+                test_cap.release()
+            else:
+                status = "Error"
+        except:
+            status = "Error"
 
         cam_info.append(
             {
-                "id": i,
+                "id": camera_info.index,
                 "name": camera_info.name,
                 "index": camera_info.index,
                 "path": camera_info.path if hasattr(camera_info, "path") else "N/A",
-                "resolution": f"{width}x{height}",
-                "fps": fps,
-                "backend": backend,
                 "status": status,
             }
         )
@@ -45,9 +36,17 @@ class camera_usb:
     def __init__(self, index):
         self.index = index
         self.cap = cv2.VideoCapture(index)
+        if not self.cap.isOpened():
+            raise Exception(f"Failed to open camera at index {index}")
+
+    def get_id(self):
+        """Return the camera index/ID"""
+        return self.index
 
     def get_frame(self):
         ret, frame = self.cap.read()
+        if not ret:
+            return None
         return frame
 
     def get_width(self):
@@ -79,12 +78,17 @@ class camera_usb:
         self.cap.set(cv2.CAP_PROP_FPS, fps)
 
     def disable(self):
-        self.cap.release()
+        if self.cap is not None and self.cap.isOpened():
+            self.cap.release()
 
     def take_picture(self):
-        name = "calibration_picture/"
-        cv2.imwrite(name, self.get_frame())
-        self.count += 1
+        name = f"calibration_picture/picture_{self.count}.jpg"
+        frame = self.get_frame()
+        if frame is not None:
+            cv2.imwrite(name, frame)
+            self.count += 1
+            return name
+        return None
 
 
 class camera_mipi_csi:

@@ -24,7 +24,8 @@ frame_lock = threading.Lock()
 has_json = False
 camera_matrix = None
 calibration_path = "content/calibration.json"
-cameras = {}
+cameras = []
+active_camera_ids = set()  # Track which camera IDs are active
 
 detector = detect.Detector("content/jetson_orinnano.engine")
 
@@ -32,6 +33,7 @@ detector = detect.Detector("content/jetson_orinnano.engine")
 if os.path.exists(calibration_path):
     try:
         camera_matrix = utils.get_calibration_camera_matrix(calibration_path)
+        has_json = True  # Set flag when calibration is loaded
         print(f"Loaded calibration matrix from {calibration_path}")
     except Exception as e:
         print(f"Failed to load calibration: {e}")
@@ -44,15 +46,22 @@ def capture_loop():
     global latest_frame, latest_annotated_frame, latest_results, latest_yaw
     while True:
         try:
-            frame = camera.get_frame()
+            # Check if cameras list is not empty
+            if not cameras:
+                time.sleep(0.1)
+                continue
+
+            frame = cameras[0].get_frame()
             results = detector.bbox_frame(frame)
             annotated_frame = None
             if results is not None:
                 annotated_frame = results.plot()
             if has_json:
-                yaw = utils.calculate_yaw(results, camera_matrix, camera.get_width())
+                yaw = utils.calculate_yaw(
+                    results, camera_matrix, cameras[0].get_width()
+                )
             else:
-                yaw = 1
+                yaw = None
             with frame_lock:
                 latest_frame = frame.copy() if frame is not None else None
                 latest_annotated_frame = annotated_frame
@@ -60,10 +69,10 @@ def capture_loop():
                 latest_yaw = yaw
         except Exception as e:
             print(f"Error in capture loop: {e}")
+            time.sleep(0.1)
 
 
 def generate_frames(frame_type="raw"):
-    last_frame = None
     frame_interval = 1.0 / 30  # 30 FPS max
     last_time = 0
 
@@ -139,7 +148,7 @@ def yaw():
 
 @app.route("/config/upload_json", methods=["POST"])
 def upload_json():
-    global camera_matrix
+    global camera_matrix, has_json
 
     if "file" not in request.files:
         return jsonify({"error": "No file part"}), 400
@@ -158,6 +167,7 @@ def upload_json():
     # Try to load the calibration matrix
     try:
         camera_matrix = utils.get_calibration_camera_matrix(filepath)
+        has_json = True  # Update flag when calibration is loaded
         return jsonify(
             {
                 "message": "File uploaded and calibration loaded successfully",
@@ -186,25 +196,81 @@ def config_status():
 
 @app.route("/video/avaliable_cameras")
 def avaliable_cameras_button():
-    cameras_avaliable = cameras_hardware.get_available_cameras()
-    return jsonify(cameras_avaliable)
+    cameras_available = cameras_hardware.get_available_cameras()
+    for cam in cameras_available:
+        if cam["id"] in active_camera_ids:
+            cam["status"] = "Active"
+    return jsonify(cameras_available)
 
 
 @app.route("/video/activate_camera", methods=["POST"])
 def activate_camera():
-    global camera
+    global cameras, active_camera_ids
 
     data = request.get_json()
     camera_id = data.get("camera_id", 0)
 
-    camera = cameras_hardware.camera_usb(camera_id)
-    cameras.append(camera)
+    if camera_id in active_camera_ids:
+        return {
+            "success": False,
+            "message": f"Camera {camera_id} is already active",
+            "camera_id": camera_id,
+        }
 
-    return {
-        "success": True,
-        "message": f"Camera {camera_id} opened successfully",
-        "camera_id": camera_id,
-    }
+    try:
+        camera = cameras_hardware.camera_usb(camera_id)
+        cameras.append(camera)
+        active_camera_ids.add(camera_id)
+
+        return {
+            "success": True,
+            "message": f"Camera {camera_id} activated successfully",
+            "camera_id": camera_id,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to activate camera: {str(e)}",
+            "camera_id": camera_id,
+        }
+
+
+@app.route("/video/deactivate_camera", methods=["POST"])
+def deactivate_camera():
+    global cameras, active_camera_ids
+
+    data = request.get_json()
+    camera_id = data.get("camera_id", 0)
+
+    if camera_id not in active_camera_ids:
+        return {
+            "success": False,
+            "message": f"Camera {camera_id} is not active",
+            "camera_id": camera_id,
+        }
+
+    try:
+        cameras_to_keep = []
+        for cam in cameras:
+            if cam.get_id() == camera_id:
+                cam.disable()
+            else:
+                cameras_to_keep.append(cam)
+
+        cameras = cameras_to_keep
+        active_camera_ids.discard(camera_id)
+
+        return {
+            "success": True,
+            "message": f"Camera {camera_id} deactivated successfully",
+            "camera_id": camera_id,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to deactivate camera: {str(e)}",
+            "camera_id": camera_id,
+        }
 
 
 def main():
